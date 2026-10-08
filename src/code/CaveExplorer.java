@@ -63,4 +63,10 @@ public class CaveExplorer extends GenericSearchProblem {
         return successors;
     }
 
+    @Override
+    public double[] calculateHeuristic(State state) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'calculateHeuristic'");
+    }
+
 }
