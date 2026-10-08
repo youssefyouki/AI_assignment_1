@@ -22,5 +22,12 @@ public class SearchEngine {
         return "";
     }
 
+    public static String reconstructSolution(goalNode, expandedNodes) {
+        // Reconstruct the solution path from the goal node to the initial state
+        //Format string as: plan; lives; energy; nodes
+        //Return "No Solution" if the search exhausts all possibilities without reaching the goal
+        return "";
+    }
+
 
 }
