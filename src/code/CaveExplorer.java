@@ -90,6 +90,68 @@ public class CaveExplorer extends GenericSearchProblem {
         return pairs;
     }
 
+    // ------------------------------------------------------------------
+    // ACTIONS: each returns the new State, or null if the move is illegal
+    // ------------------------------------------------------------------
+
+    /**
+     * Shared by all moves that change position (left, right, climbup,
+     * climbdown, jumpdown). Moves one cell by (dx, dy), then checks:
+     *   - the new cell is inside the grid
+     *   - the new cell is not a wall
+     *   - there is enough energy, rope and lives for this move
+     * ropeCost and lifeCost are what the move uses up (0 for left/right).
+     */
+    private static State tryMove(State current, int dx, int dy, int ropeCost, int lifeCost) {
+        int newX = current.getAgentX() + dx;
+        int newY = current.getAgentY() + dy;
+
+        // Must stay inside the grid
+        if (newX < 0 || newX >= width || newY < 0 || newY >= height) {
+            return null;
+        }
+
+        // Must not be a wall (difficulty 0)
+        int difficulty = grid[newY][newX];
+        if (difficulty == 0) {
+            return null;
+        }
+
+        // Must have enough energy for the new cell
+        if (current.getEnergy() < difficulty) {
+            return null;
+        }
+
+        // Must have enough rope, and still keep at least 1 life afterwards
+        if (current.getRope() < ropeCost) {
+            return null;
+        }
+        if (current.getLives() - lifeCost < 1) {
+            return null;
+        }
+
+        // Everything is fine: build the new state (position and resources change)
+        return new State(newX, newY,
+                         current.getEnergy() - difficulty,
+                         current.getRope() - ropeCost,
+                         current.getLives() - lifeCost,
+                         current.isHasKey(),
+                         current.getDoorsUnlocked(),
+                         current.getKeysCollected());
+    }
+
+    // left: one cell to the left (x gets smaller), no rope, no life
+    private static State applyLeft(State current) {
+        return tryMove(current, -1, 0, 0, 0);
+    }
+
+    // right: one cell to the right (x gets bigger), no rope, no life
+    private static State applyRight(State current) {
+        return tryMove(current, 1, 0, 0, 0);
+    }
+
+    // TODO next: applyClimbUp, applyClimbDown, applyJumpDown, applyCollect, applyUnlock
+
     @Override
     public boolean isGoalState(State current) {
         // TODO: true when all doors are unlocked and lives >= 1
@@ -108,18 +170,30 @@ public class CaveExplorer extends GenericSearchProblem {
         throw new UnsupportedOperationException("Unimplemented method 'calculateHeuristic'");
     }
 
-    // TEMPORARY: only for checking the parser. Delete before submitting.
-    public static void main(String[] args) {
-        State s = parseInput("3,4;0,1;100,2;0,3,0,0;4,12,0,0;0,7,23,8;3,2;1,0;");
-        System.out.println("height=" + height + " width=" + width);
-        System.out.println("start=(" + s.getAgentX() + "," + s.getAgentY() + ")"
-                + " energy=" + s.getEnergy() + " rope=" + s.getRope() + " lives=" + s.getLives());
-        for (int y = 0; y < height; y++) {
-            System.out.println(java.util.Arrays.toString(grid[y]));
+    // TEMPORARY: only for checking our code. Delete before submitting.
+    private static void show(String label, State s) {
+        if (s == null) {
+            System.out.println(label + ": null (illegal move)");
+        } else {
+            System.out.println(label + ": pos=(" + s.getAgentX() + "," + s.getAgentY() + ")"
+                    + " energy=" + s.getEnergy() + " rope=" + s.getRope() + " lives=" + s.getLives());
         }
-        System.out.println("doors=" + java.util.Arrays.deepToString(doorLocations));
-        System.out.println("keys=" + java.util.Arrays.deepToString(keyLocations));
-        System.out.println("doors unlocked: " + java.util.Arrays.toString(s.getDoorsUnlocked()));
-        System.out.println("keys collected: " + java.util.Arrays.toString(s.getKeysCollected()));
+    }
+
+    public static void main(String[] args) {
+        State start = parseInput("3,4;0,1;100,2;0,3,0,0;4,12,0,0;0,7,23,8;3,2;1,0;");
+        show("start", start);
+
+        State afterRight = applyRight(start);
+        show("right from start", afterRight);                // (1,1), energy 100-12 = 88
+
+        show("left from start", applyLeft(start));           // x would be -1: outside the grid
+        show("right again", applyRight(afterRight));         // (2,1) is a wall
+
+        show("left back", applyLeft(afterRight));            // (0,1), energy 88-4 = 84
+
+        // Same position as start but only 5 energy: cell (1,1) needs 12
+        State tired = new State(0, 1, 5, 2, 3, false, new boolean[1], new boolean[1]);
+        show("right with 5 energy", applyRight(tired));
     }
 }
