@@ -149,7 +149,9 @@ public class CaveExplorer extends GenericSearchProblem {
     private static State applyRight(State current) {
         return tryMove(current, 1, 0, 0, 0);
     }
- private static State applyClimbUp(State current) {
+
+    // climbup: one cell up (y gets smaller, row 0 is the top), uses 1 rope, no life
+    private static State applyClimbUp(State current) {
         return tryMove(current, 0, -1, 1, 0);
     }
 
@@ -157,7 +159,88 @@ public class CaveExplorer extends GenericSearchProblem {
     private static State applyClimbDown(State current) {
         return tryMove(current, 0, 1, 1, 0);
     }
-    // TODO next: applyClimbUp, applyClimbDown, applyJumpDown, applyCollect, applyUnlock
+
+    // jumpdown: one cell down, no rope, costs 1 life (needs more than 1 life left).
+    // It still pays the energy of the cell it lands on (see the PDF example).
+    private static State applyJumpDown(State current) {
+        return tryMove(current, 0, 1, 0, 1);
+    }
+
+    // Returns the index of the location (x, y) in the list, or -1 if it is not there.
+    // Used to find "which door / which key am I standing on".
+    private static int findIndex(int[][] locations, int x, int y) {
+        for (int i = 0; i < locations.length; i++) {
+            if (locations[i][0] == x && locations[i][1] == y) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * collect: pick up the key at the current cell.
+     * Allowed only if we stand on a key that is still on the floor
+     * and we are not already carrying a key (only one at a time).
+     * Costs nothing.
+     */
+    private static State applyCollect(State current) {
+        int keyIndex = findIndex(keyLocations, current.getAgentX(), current.getAgentY());
+
+        // No key here
+        if (keyIndex == -1) {
+            return null;
+        }
+        // That key was already picked up
+        if (current.getKeysCollected()[keyIndex]) {
+            return null;
+        }
+        // Hands are full
+        if (current.isHasKey()) {
+            return null;
+        }
+
+        // Mark this key as collected and hold it
+        boolean[] keysCollected = current.getKeysCollected();
+        keysCollected[keyIndex] = true;
+
+        return new State(current.getAgentX(), current.getAgentY(),
+                         current.getEnergy(), current.getRope(), current.getLives(),
+                         true,
+                         current.getDoorsUnlocked(),
+                         keysCollected);
+    }
+
+    /**
+     * unlock: open the door at the current cell.
+     * Allowed only if we stand on a door that is still locked
+     * and we are carrying a key. The key is used up. Costs nothing else.
+     */
+    private static State applyUnlock(State current) {
+        int doorIndex = findIndex(doorLocations, current.getAgentX(), current.getAgentY());
+
+        // No door here
+        if (doorIndex == -1) {
+            return null;
+        }
+        // That door is already open
+        if (current.getDoorsUnlocked()[doorIndex]) {
+            return null;
+        }
+        // We have no key to open it with
+        if (!current.isHasKey()) {
+            return null;
+        }
+
+        // Mark this door as unlocked and use up the key
+        boolean[] doorsUnlocked = current.getDoorsUnlocked();
+        doorsUnlocked[doorIndex] = true;
+
+        return new State(current.getAgentX(), current.getAgentY(),
+                         current.getEnergy(), current.getRope(), current.getLives(),
+                         false,
+                         doorsUnlocked,
+                         current.getKeysCollected());
+    }
 
     @Override
     public boolean isGoalState(State current) {
@@ -183,7 +266,10 @@ public class CaveExplorer extends GenericSearchProblem {
             System.out.println(label + ": null (illegal move)");
         } else {
             System.out.println(label + ": pos=(" + s.getAgentX() + "," + s.getAgentY() + ")"
-                    + " energy=" + s.getEnergy() + " rope=" + s.getRope() + " lives=" + s.getLives());
+                    + " energy=" + s.getEnergy() + " rope=" + s.getRope() + " lives=" + s.getLives()
+                    + " key=" + s.isHasKey()
+                    + " doors=" + java.util.Arrays.toString(s.getDoorsUnlocked())
+                    + " keys=" + java.util.Arrays.toString(s.getKeysCollected()));
         }
     }
 
@@ -191,22 +277,37 @@ public class CaveExplorer extends GenericSearchProblem {
         State start = parseInput("3,4;0,1;100,2;0,3,0,0;4,12,0,0;0,7,23,8;3,2;1,0;");
         show("start", start);
 
-        // First steps of the PDF example: right, climbup, (collect), climbdown
-        State afterRight = applyRight(start);
-        show("right", afterRight);                            // (1,1) energy 100-12 = 88
+        // Replay the PDF solution:
+        // right,climbup,collect,climbdown,jumpdown,right,right,unlock
+        State s1 = applyRight(start);
+        show("right", s1);
+        State s2 = applyClimbUp(s1);
+        show("climbup", s2);
+        State s3 = applyCollect(s2);
+        show("collect", s3);
+        show("collect again", applyCollect(s3));
+        State s4 = applyClimbDown(s3);
+        show("climbdown", s4);
+        State s5 = applyJumpDown(s4);
+        show("jumpdown", s5);
+        State s6 = applyRight(s5);
+        show("right", s6);
+        show("unlock (not on a door)", applyUnlock(s6));
+        State s7 = applyRight(s6);
+        show("right", s7);
+        State s8 = applyUnlock(s7);
+        show("unlock", s8);
+        show("unlock again", applyUnlock(s8));
 
-        State up = applyClimbUp(afterRight);
-        show("climbup", up);                                  // (1,0) energy 88-3 = 85, rope 2-1 = 1
+        // The PDF says this solution uses 1 life and 65 energy
+        System.out.println("lives used=" + (start.getLives() - s8.getLives())
+                + " energy used=" + (start.getEnergy() - s8.getEnergy()));
 
-        show("climbup again (off the top)", applyClimbUp(up)); // y would be -1: outside the grid
-
-        State down = applyClimbDown(up);
-        show("climbdown", down);                              // (1,1) energy 85-12 = 73, rope 0
-
-        show("climbup with no rope", applyClimbUp(down));     // rope is 0
-
-        show("climbdown from start (wall below)", applyClimbDown(start)); // (0,2) is a wall
-
-        show("climbdown from (1,1)", applyClimbDown(afterRight));         // (1,2) energy 88-7 = 81, rope 1
+        // A few illegal moves
+        show("collect where there is no key", applyCollect(start));
+        show("jumpdown with 1 life", applyJumpDown(
+                new State(1, 1, 50, 0, 1, false, new boolean[1], new boolean[1])));
+        show("unlock without a key", applyUnlock(
+                new State(3, 2, 35, 0, 2, false, new boolean[1], new boolean[] {true})));
     }
 }
