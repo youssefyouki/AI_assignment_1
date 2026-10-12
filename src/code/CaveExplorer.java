@@ -149,7 +149,14 @@ public class CaveExplorer extends GenericSearchProblem {
     private static State applyRight(State current) {
         return tryMove(current, 1, 0, 0, 0);
     }
+ private static State applyClimbUp(State current) {
+        return tryMove(current, 0, -1, 1, 0);
+    }
 
+    // climbdown: one cell down (y gets bigger), uses 1 rope, no life
+    private static State applyClimbDown(State current) {
+        return tryMove(current, 0, 1, 1, 0);
+    }
     // TODO next: applyClimbUp, applyClimbDown, applyJumpDown, applyCollect, applyUnlock
 
     @Override
@@ -184,16 +191,22 @@ public class CaveExplorer extends GenericSearchProblem {
         State start = parseInput("3,4;0,1;100,2;0,3,0,0;4,12,0,0;0,7,23,8;3,2;1,0;");
         show("start", start);
 
+        // First steps of the PDF example: right, climbup, (collect), climbdown
         State afterRight = applyRight(start);
-        show("right from start", afterRight);                // (1,1), energy 100-12 = 88
+        show("right", afterRight);                            // (1,1) energy 100-12 = 88
 
-        show("left from start", applyLeft(start));           // x would be -1: outside the grid
-        show("right again", applyRight(afterRight));         // (2,1) is a wall
+        State up = applyClimbUp(afterRight);
+        show("climbup", up);                                  // (1,0) energy 88-3 = 85, rope 2-1 = 1
 
-        show("left back", applyLeft(afterRight));            // (0,1), energy 88-4 = 84
+        show("climbup again (off the top)", applyClimbUp(up)); // y would be -1: outside the grid
 
-        // Same position as start but only 5 energy: cell (1,1) needs 12
-        State tired = new State(0, 1, 5, 2, 3, false, new boolean[1], new boolean[1]);
-        show("right with 5 energy", applyRight(tired));
+        State down = applyClimbDown(up);
+        show("climbdown", down);                              // (1,1) energy 85-12 = 73, rope 0
+
+        show("climbup with no rope", applyClimbUp(down));     // rope is 0
+
+        show("climbdown from start (wall below)", applyClimbDown(start)); // (0,2) is a wall
+
+        show("climbdown from (1,1)", applyClimbDown(afterRight));         // (1,2) energy 88-7 = 81, rope 1
     }
 }
