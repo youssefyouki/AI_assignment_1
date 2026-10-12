@@ -242,16 +242,47 @@ public class CaveExplorer extends GenericSearchProblem {
                          current.getKeysCollected());
     }
 
+    // ------------------------------------------------------------------
+    // THE CONTRACT WITH THE SEARCH (GenericSearchProblem)
+    // ------------------------------------------------------------------
+
+    /**
+     * Goal: every door is unlocked and the explorer still has at least 1 life.
+     */
     @Override
     public boolean isGoalState(State current) {
-        // TODO: true when all doors are unlocked and lives >= 1
-        return false;
+        return current.areAllDoorsUnlocked() && current.getLives() >= 1;
     }
 
+    /**
+     * Returns every legal move from this state as a list of [Action, State] pairs.
+     * Each action is tried; illegal ones (null) are skipped.
+     */
     @Override
     public ArrayList<ArrayList<Object>> getNextState(State current) {
-        // TODO: add [Action, State] pairs for each legal action
-        return new ArrayList<>();
+        ArrayList<ArrayList<Object>> successors = new ArrayList<>();
+
+        addIfLegal(successors, Action.LEFT, applyLeft(current));
+        addIfLegal(successors, Action.RIGHT, applyRight(current));
+        addIfLegal(successors, Action.CLIMBUP, applyClimbUp(current));
+        addIfLegal(successors, Action.CLIMBDOWN, applyClimbDown(current));
+        addIfLegal(successors, Action.JUMPDOWN, applyJumpDown(current));
+        addIfLegal(successors, Action.COLLECT, applyCollect(current));
+        addIfLegal(successors, Action.UNLOCK, applyUnlock(current));
+
+        return successors;
+    }
+
+    // Adds [action, nextState] to the list, but only if the move was legal (not null)
+    private static void addIfLegal(ArrayList<ArrayList<Object>> successors,
+                                   Action action, State nextState) {
+        if (nextState == null) {
+            return;
+        }
+        ArrayList<Object> pair = new ArrayList<>();
+        pair.add(action);
+        pair.add(nextState);
+        successors.add(pair);
     }
 
     @Override
@@ -261,53 +292,38 @@ public class CaveExplorer extends GenericSearchProblem {
     }
 
     // TEMPORARY: only for checking our code. Delete before submitting.
-    private static void show(String label, State s) {
-        if (s == null) {
-            System.out.println(label + ": null (illegal move)");
-        } else {
-            System.out.println(label + ": pos=(" + s.getAgentX() + "," + s.getAgentY() + ")"
-                    + " energy=" + s.getEnergy() + " rope=" + s.getRope() + " lives=" + s.getLives()
-                    + " key=" + s.isHasKey()
-                    + " doors=" + java.util.Arrays.toString(s.getDoorsUnlocked())
-                    + " keys=" + java.util.Arrays.toString(s.getKeysCollected()));
+    private static void showMoves(String label, CaveExplorer problem, State s) {
+        ArrayList<String> moves = new ArrayList<>();
+        for (ArrayList<Object> pair : problem.getNextState(s)) {
+            Action action = (Action) pair.get(0);
+            State next = (State) pair.get(1);
+            moves.add(action + "->(" + next.getAgentX() + "," + next.getAgentY() + ")");
         }
+        System.out.println(label + ": " + moves.size() + " moves " + moves);
     }
 
     public static void main(String[] args) {
+        CaveExplorer problem = new CaveExplorer();
         State start = parseInput("3,4;0,1;100,2;0,3,0,0;4,12,0,0;0,7,23,8;3,2;1,0;");
-        show("start", start);
 
-        // Replay the PDF solution:
-        // right,climbup,collect,climbdown,jumpdown,right,right,unlock
+        // Walk the PDF solution to get some interesting states
         State s1 = applyRight(start);
-        show("right", s1);
         State s2 = applyClimbUp(s1);
-        show("climbup", s2);
         State s3 = applyCollect(s2);
-        show("collect", s3);
-        show("collect again", applyCollect(s3));
         State s4 = applyClimbDown(s3);
-        show("climbdown", s4);
         State s5 = applyJumpDown(s4);
-        show("jumpdown", s5);
         State s6 = applyRight(s5);
-        show("right", s6);
-        show("unlock (not on a door)", applyUnlock(s6));
         State s7 = applyRight(s6);
-        show("right", s7);
         State s8 = applyUnlock(s7);
-        show("unlock", s8);
-        show("unlock again", applyUnlock(s8));
 
-        // The PDF says this solution uses 1 life and 65 energy
-        System.out.println("lives used=" + (start.getLives() - s8.getLives())
-                + " energy used=" + (start.getEnergy() - s8.getEnergy()));
+        showMoves("from start", problem, start);
+        showMoves("from (1,1)", problem, s1);
+        showMoves("from (1,0) without key", problem, s2);
+        showMoves("from (1,0) with key", problem, s3);
+        showMoves("from door cell with key", problem, s7);
 
-        // A few illegal moves
-        show("collect where there is no key", applyCollect(start));
-        show("jumpdown with 1 life", applyJumpDown(
-                new State(1, 1, 50, 0, 1, false, new boolean[1], new boolean[1])));
-        show("unlock without a key", applyUnlock(
-                new State(3, 2, 35, 0, 2, false, new boolean[1], new boolean[] {true})));
+        System.out.println("goal at start: " + problem.isGoalState(start));
+        System.out.println("goal before unlock: " + problem.isGoalState(s7));
+        System.out.println("goal after unlock: " + problem.isGoalState(s8));
     }
 }
