@@ -520,39 +520,4 @@ public class CaveExplorer extends GenericSearchProblem {
         return new double[]{hLives, hEnergy};
     }
 
-    // TEMPORARY: only for checking our code. Delete before submitting.
-    private static void showMoves(String label, CaveExplorer problem, State s) {
-        ArrayList<String> moves = new ArrayList<>();
-        for (ArrayList<Object> pair : problem.getNextState(s)) {
-            Action action = (Action) pair.get(0);
-            State next = (State) pair.get(1);
-            moves.add(action + "->(" + next.getAgentX() + "," + next.getAgentY() + ")");
-        }
-        System.out.println(label + ": " + moves.size() + " moves " + moves);
-    }
-
-    public static void main(String[] args) {
-        CaveExplorer problem = new CaveExplorer();
-        State start = parseInput("3,4;0,1;100,2;0,3,0,0;4,12,0,0;0,7,23,8;3,2;1,0;");
-
-        // Walk the PDF solution to get some interesting states
-        State s1 = applyRight(start);
-        State s2 = applyClimbUp(s1);
-        State s3 = applyCollect(s2);
-        State s4 = applyClimbDown(s3);
-        State s5 = applyJumpDown(s4);
-        State s6 = applyRight(s5);
-        State s7 = applyRight(s6);
-        State s8 = applyUnlock(s7);
-
-        showMoves("from start", problem, start);
-        showMoves("from (1,1)", problem, s1);
-        showMoves("from (1,0) without key", problem, s2);
-        showMoves("from (1,0) with key", problem, s3);
-        showMoves("from door cell with key", problem, s7);
-
-        System.out.println("goal at start: " + problem.isGoalState(start));
-        System.out.println("goal before unlock: " + problem.isGoalState(s7));
-        System.out.println("goal after unlock: " + problem.isGoalState(s8));
-    }
 }
