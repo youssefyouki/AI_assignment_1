@@ -47,7 +47,7 @@ public class SearchEngine {
             expandedNodes++;
 
             // Generate all valid successor (action, nextState) pairs
-            for (ArrayList<Object> successor : CaveExplorer.getNextState(node.getState())) {
+            for (ArrayList<Object> successor : problem.getNextState(node.getState())) {
                 Action action    = (Action) successor.get(0);
                 State  nextState = (State)  successor.get(1);
 
@@ -108,18 +108,29 @@ public class SearchEngine {
     //   "No Solution"    – subtree is fully explored with no goal and no cutoff;
     //                      going deeper will not help
     //
-    // onPath tracks states on the current root-to-node path only.
-    // It is populated on the way down and removed on backtrack, so the same
-    // state can still be reached via a completely different branch (unlike a
-    // global visited set which would wrongly prune valid deeper paths).
+    // visited tracks every state expanded so far IN THIS DLS CALL.
+    // Critically, states are NEVER removed from visited on backtrack.
+    //
+    // Why no backtracking?
+    //   In this problem, every move strictly decreases energy (and sometimes
+    //   lives/rope).  If state S was first reached at depth d₁ and explored
+    //   up to (limit − d₁) further steps, any later arrival at S via a longer
+    //   path arrives at depth d₂ > d₁ with strictly fewer resources and only
+    //   (limit − d₂) further steps — a strictly weaker position.  Skipping S
+    //   the second time is always safe: if S leads to the goal, the first visit
+    //   already found it.
+    //
+    //   Without this, IDS regenerates exponentially many paths that differ only
+    //   by how many times the agent walked left-right (each producing a new
+    //   State because energy differs), and the outer loop never terminates.
     // -------------------------------------------------------------------------
     private static String dls(GenericSearchProblem problem,
                                SearchNode node,
                                int limit,
                                int[] expanded,
-                               Set<State> onPath) {
+                               Set<State> visited) {
 
-        // Goal check before anything else — do not count goal node as expanded
+        // Goal check first — do not count goal node as expanded
         if (problem.isGoalState(node.getState())) {
             return reconstructSolution(node, expanded[0]);
         }
@@ -130,24 +141,29 @@ public class SearchEngine {
             return "CUTOFF";
         }
 
-        // Add current state to the path and count the expansion
-        onPath.add(node.getState());
+        // If this state was already expanded earlier in this DLS call (via a
+        // shorter path), skip it — the earlier expansion was more thorough
+        if (visited.contains(node.getState())) {
+            return "No Solution";
+        }
+
+        // Mark as expanded for this DLS call (NOT removed on backtrack)
+        visited.add(node.getState());
         expanded[0]++;
 
         // Whether any child returned CUTOFF (meaning deeper nodes were cut off)
         boolean cutoff = false;
 
-        for (ArrayList<Object> successor : CaveExplorer.getNextState(node.getState())) {
+        for (ArrayList<Object> successor : problem.getNextState(node.getState())) {
             Action action    = (Action) successor.get(0);
             State  nextState = (State)  successor.get(1);
 
-            // Skip states already on the current path to prevent infinite loops
-            if (!onPath.contains(nextState)) {
+            if (!visited.contains(nextState)) {
                 int lifeCost   = node.getState().getLives()  - nextState.getLives();
                 int energyCost = node.getState().getEnergy() - nextState.getEnergy();
 
                 SearchNode child  = new SearchNode(nextState, node, action, lifeCost, energyCost);
-                String     result = dls(problem, child, limit, expanded, onPath);
+                String     result = dls(problem, child, limit, expanded, visited);
 
                 if (result.equals("CUTOFF")) {
                     // At least one branch was cut; flag it but keep exploring siblings
@@ -158,9 +174,6 @@ public class SearchEngine {
                 }
             }
         }
-
-        // Backtrack: remove current state so other branches can visit it
-        onPath.remove(node.getState());
 
         // If any branch was cut, report CUTOFF so IDS knows to go deeper.
         // Otherwise the subtree is truly exhausted.
@@ -215,7 +228,7 @@ public class SearchEngine {
             explored.add(node.getState());
             expandedNodes++;
 
-            for (ArrayList<Object> successor : CaveExplorer.getNextState(node.getState())) {
+            for (ArrayList<Object> successor : problem.getNextState(node.getState())) {
                 Action action    = (Action) successor.get(0);
                 State  nextState = (State)  successor.get(1);
 

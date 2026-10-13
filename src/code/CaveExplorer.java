@@ -14,12 +14,25 @@ public class CaveExplorer extends GenericSearchProblem {
     public static int[][] doorLocations; // [[x1, y1], [x2, y2], ...]
     public static int[][] keyLocations;  // [[x1, y1], [x2, y2], ...]
 
+    // Goal cell for the Dijkstra heuristic.
+    // parseInput must set these to the actual exit/goal position from the input spec.
+    public static int goalX = 0;
+    public static int goalY = 0;
+
+    // Precomputed min-energy cost from every cell to the goal (ignoring doors).
+    // Reset to null by parseInput each run so stale data from a previous map is discarded.
+    private static int[][] minEnergyCost;
+
     public static String solve(String initString, String strategy) {
         State initialState = parseInput(initString);
         CaveExplorer problem = new CaveExplorer();
 
-        // TODO (later): hand problem + initialState to the SearchEngine
-        return "";
+        switch (strategy) {
+            case "UC": return SearchEngine.solveUC(problem, initialState);
+            case "ID": return SearchEngine.solveID(problem, initialState);
+            case "AS": return SearchEngine.solveAStar(problem, initialState);
+            default:   return "Unknown strategy: " + strategy;
+        }
     }
 
     /**
@@ -62,6 +75,9 @@ public class CaveExplorer extends GenericSearchProblem {
         // Nothing is unlocked or collected yet (new boolean[] starts all false)
         boolean[] doorsUnlocked = new boolean[doorLocations.length];
         boolean[] keysCollected = new boolean[keyLocations.length];
+
+        // Discard the Dijkstra table from any previous run — the new map needs a fresh one
+        minEnergyCost = null;
 
         // The explorer always starts with 3 lives and no key in hand
         return new State(startX, startY, startEnergy, startRope, 3, false,
@@ -288,10 +304,6 @@ public class CaveExplorer extends GenericSearchProblem {
         successors.add(pair);
     }
 
-    @Override
-    public double[] calculateHeuristic(State state) {
-        // Part of A*, decided later with your teammate
-        throw new UnsupportedOperationException("Unimplemented method 'calculateHeuristic'");
     /*
      * ==========================================================================
      * STEP 1 — PRECOMPUTE MINIMUM ENERGY COSTS  (Backward Dijkstra)
