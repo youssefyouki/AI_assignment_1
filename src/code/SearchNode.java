@@ -70,7 +70,3 @@ public class SearchNode implements Comparable<SearchNode> {
         return Double.compare(totalEnergy1, totalEnergy2);
     }
 }
-
-
-
-
